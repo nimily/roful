@@ -68,6 +68,14 @@ def run_experiments(n, d, k, t, s):
     plt.savefig(f'plots/regret-{n}-{d}-{k}-{t}-{s}.pdf')
     plt.show()
 
+    print()
+    print('  policy   |   regret')
+    print('-' * 25)
+    for name, aggregate in aggregates.items():
+        mean = aggregate.confidence_band()[0][-1]
+        print(f'{name:10} | {mean:.2f}')
+    print()
+
     print(f'All the experiments finished successfully.')
 
 
