@@ -94,6 +94,10 @@ class Roful(Policy):
         return Roful(d, alpha, OfulSearchSet(radius))
 
     @staticmethod
+    def greedy(d, alpha):
+        return Roful(d, alpha, GreedySearchSet())
+
+    @staticmethod
     def sieved_greedy(d, alpha, radius=1.0, tolerance=1.0):
         return Roful(d, alpha, SievedGreedySearchSet(radius, tolerance))
 
@@ -129,6 +133,14 @@ class ThompsonSearchSet(ProductSearchSet):
 
     def max_perceived_reward(self, arm):
         return self.sample @ arm
+
+
+class GreedySearchSet(ProductSearchSet):
+    def __init__(self, inflation=1.0):
+        self.inflation = inflation
+
+    def max_perceived_reward(self, arm):
+        return self.summary.mean @ arm
 
 
 class SievedGreedySearchSet(SearchSet):
