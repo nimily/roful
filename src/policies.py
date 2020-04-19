@@ -123,7 +123,7 @@ class ThompsonSearchSet(ProductSearchSet):
         self.inflation = inflation
 
     def update(self):
-        mean = npl.solve(self.summary.xx, self.summary.xy)
+        mean = self.summary.mean
         rand = npr.randn(self.summary.d)
 
         basis = self.summary.basis
