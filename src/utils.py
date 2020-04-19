@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.linalg as npl
+import numpy.random as npr
 
 
 def sqrt_sym(x):
@@ -103,3 +104,16 @@ class MetricAggregator:
             self.m0 += [0] * dn
             self.m1 += [0] * dn
             self.m2 += [0] * dn
+
+
+class StateFactory:
+
+    def __init__(self, seed):
+        self.seed = seed
+
+    def __call__(self):
+        state = npr.seed(self.seed)
+
+        self.seed += 1
+
+        return state
