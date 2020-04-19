@@ -22,6 +22,7 @@ def run_single_experiment(d, k, t, sd=1.0):
     env = Environment(param, ctx_gen, noise_gen)
 
     algs = {
+        'greedy': Roful.greedy(d, 1.0),
         'ts': Roful.thompson_sampling(d, 1.0),
         'oful': Roful.thompson_sampling(d, 1.0),
         'sg(.2)': Roful.sieved_greedy(d, 1.0, tolerance=0.2),
