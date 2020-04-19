@@ -1,7 +1,8 @@
 from collections import defaultdict
 
+import argparse
+
 import numpy as np
-import numpy.random as npr
 
 import matplotlib.pyplot as plt
 
@@ -12,19 +13,20 @@ from envs import StochasticContextGenerator as CtxGenerator
 from policies import Roful
 
 from utils import MetricAggregator
+from utils import StateFactory
 
 
-def run_single_experiment(d, k, t, sd=1.0):
-    param = npr.randn(d)
-    ctx_gen = CtxGenerator(k, d)
-    noise_gen = NoiseGenerator.gaussian_noise(sd)
+def run_single_experiment(d, k, t, state_factory, sd=1.0):
+    param = state_factory().randn(d)
+    ctx_gen = CtxGenerator(k, d, state=state_factory())
+    noise_gen = NoiseGenerator.gaussian_noise(sd, state=state_factory())
 
     env = Environment(param, ctx_gen, noise_gen)
 
     algs = {
         'greedy': Roful.greedy(d, 1.0),
-        'ts': Roful.thompson_sampling(d, 1.0),
         'oful': Roful.oful(d, 1.0, radius=d ** 0.5),
+        'ts': Roful.thompson_sampling(d, 1.0, state=state_factory()),
         'sg(.2)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.2),
         'sg(.5)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.5),
         'sg(1)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=1.0),
@@ -46,11 +48,13 @@ def run_single_experiment(d, k, t, sd=1.0):
     }
 
 
-def run_experiments(n, d, k, t):
+def run_experiments(n, d, k, t, s):
+    state_factory = StateFactory(s)
+
     aggregates = defaultdict(MetricAggregator)
     for i in range(n):
         print(f'Running experiment [{i}]...')
-        metrics = run_single_experiment(d, k, t)
+        metrics = run_single_experiment(d, k, t, state_factory)
         for name, metric in metrics.items():
             aggregates[name].aggregate(np.cumsum(metric.regrets))
 
@@ -61,11 +65,25 @@ def run_experiments(n, d, k, t):
         plt.plot(range(t), mean, label=name)
 
     plt.legend()
-    plt.savefig(f'plots/regret-{d}-{k}.pdf')
+    plt.savefig(f'plots/regret-{n}-{d}-{k}-{t}-{s}.pdf')
     plt.show()
 
     print(f'All the experiments finished successfully.')
 
 
+def __main__():
+    parser = argparse.ArgumentParser(description='Process some integers.')
+
+    parser.add_argument('-n', type=int, help='number of iterations', default=50)
+    parser.add_argument('-k', type=int, help='number of actions', default=100)
+    parser.add_argument('-d', type=int, help='dimension', default=25)
+    parser.add_argument('-t', type=int, help='time horizon', default=1000)
+    parser.add_argument('-s', type=int, help='random seed', default=1)
+
+    args = parser.parse_args()
+
+    run_experiments(n=args.n, d=args.d, k=args.k, t=args.t, s=args.s)
+
+
 if __name__ == '__main__':
-    run_experiments(50, d=25, k=100, t=1000)
+    __main__()

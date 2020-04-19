@@ -96,10 +96,7 @@ class Feedback:
 
 class NoiseGenerator:
 
-    def __init__(self, state=None):
-        if state is None:
-            state = npr
-
+    def __init__(self, state=npr):
         self.state = state
 
     @abc.abstractmethod
@@ -107,13 +104,13 @@ class NoiseGenerator:
         pass
 
     @staticmethod
-    def gaussian_noise(sd: float):
+    def gaussian_noise(sd: float, state=npr):
         class GaussianGenerator(NoiseGenerator):
 
             def generate(self, ctx, arm_idx):
                 return self.state.randn() * sd
 
-        return GaussianGenerator()
+        return GaussianGenerator(state)
 
 
 class ContextGenerator:
@@ -125,16 +122,13 @@ class ContextGenerator:
 
 class StochasticContextGenerator(ContextGenerator):
 
-    def __init__(self, k, d, mu=0.0, sd=1.0, state=None):
+    def __init__(self, k, d, mu=0.0, sd=1.0, state=npr):
         self.k = k
         self.d = d
         self.mu = mu
         self.sd = sd
 
-        if state is None:
-            self.state = npr
-        else:
-            self.state = state
+        self.state = state
 
     def generate(self, t):
         arms = self.mu + self.state.randn(self.k, self.d) * self.sd

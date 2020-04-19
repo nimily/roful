@@ -86,8 +86,8 @@ class Roful(Policy):
         self.search_set = search_set
 
     @staticmethod
-    def thompson_sampling(d, alpha, inflation=1.0):
-        return Roful(d, alpha, ThompsonSearchSet(inflation))
+    def thompson_sampling(d, alpha, inflation=1.0, state=npr):
+        return Roful(d, alpha, ThompsonSearchSet(inflation, state=state))
 
     @staticmethod
     def oful(d, alpha, radius=1.0):
@@ -119,12 +119,13 @@ class Roful(Policy):
 class ThompsonSearchSet(ProductSearchSet):
     sample: np.ndarray
 
-    def __init__(self, inflation=1.0):
+    def __init__(self, inflation=1.0, state=npr):
         self.inflation = inflation
+        self.state = state
 
     def update(self):
         mean = self.summary.mean
-        rand = npr.randn(self.summary.d)
+        rand = self.state.randn(self.summary.d)
 
         basis = self.summary.basis
         scale = self.summary.scale
