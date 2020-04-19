@@ -24,9 +24,10 @@ def run_single_experiment(d, k, t, sd=1.0):
     algs = {
         'greedy': Roful.greedy(d, 1.0),
         'ts': Roful.thompson_sampling(d, 1.0),
-        'oful': Roful.thompson_sampling(d, 1.0),
-        'sg(.2)': Roful.sieved_greedy(d, 1.0, tolerance=0.2),
-        'sg(.5)': Roful.sieved_greedy(d, 1.0, tolerance=0.5),
+        'oful': Roful.oful(d, 1.0, radius=d ** 0.5),
+        'sg(.2)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.2),
+        'sg(.5)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.5),
+        'sg(1)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=1.0),
     }
 
     for i in range(t):
