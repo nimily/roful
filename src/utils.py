@@ -112,7 +112,7 @@ class StateFactory:
         self.seed = seed
 
     def __call__(self):
-        state = npr.seed(self.seed)
+        state = npr.RandomState(self.seed)
 
         self.seed += 1
 
