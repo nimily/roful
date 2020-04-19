@@ -61,10 +61,11 @@ def run_experiments(n, d, k, t):
         plt.plot(range(t), mean, label=name)
 
     plt.legend()
+    plt.savefig(f'plots/regret-{d}-{k}.pdf')
     plt.show()
 
     print(f'All the experiments finished successfully.')
 
 
 if __name__ == '__main__':
-    run_experiments(10, d=25, k=100, t=1000)
+    run_experiments(50, d=25, k=100, t=1000)
