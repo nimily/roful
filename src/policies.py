@@ -133,7 +133,7 @@ class ThompsonSearchSet(ProductSearchSet):
         basis = self.summary.basis
         scale = self.summary.scale
 
-        self.compensator = basis.T @ (rand / scale ** 0.5)
+        self.compensator = self.inflation * basis.T @ (rand / scale ** 0.5)
 
     def max_perceived_reward(self, arms):
         return arms @ (self.summary.mean + self.compensator)
@@ -152,7 +152,7 @@ class DirectionalThompsonSearchSet(ProductSearchSet):
         basis = self.summary.basis
         scale = self.summary.scale
 
-        self.compensator = basis.T @ np.diag(rand * (self.summary.d / scale) ** 0.5)
+        self.compensator = self.inflation * basis.T @ np.diag(rand * (self.summary.d / scale) ** 0.5)
 
     def max_perceived_reward(self, arms):
         return arms @ self.summary.mean + np.max(arms @ self.compensator, axis=1)
