@@ -26,10 +26,9 @@ def run_single_experiment(d, k, t, state_factory, sd=1.0):
     algs = {
         'greedy': Roful.greedy(d, 1.0),
         'oful': Roful.oful(d, 1.0, radius=d ** 0.5),
-        'ts': Roful.thompson_sampling(d, 1.0, state=state_factory()),
-        'sg(.2)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.2),
+        'ts': Roful.ts(d, 1.0, state=state_factory()),
+        'dts': Roful.dts(d, 1.0, state=state_factory()),
         'sg(.5)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.5),
-        'sg(1)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=1.0),
     }
 
     for i in range(t):
@@ -82,10 +81,10 @@ def run_experiments(n, d, k, t, s):
 def __main__():
     parser = argparse.ArgumentParser(description='Process some integers.')
 
-    parser.add_argument('-n', type=int, help='number of iterations', default=50)
+    parser.add_argument('-n', type=int, help='number of iterations', default=25)
     parser.add_argument('-k', type=int, help='number of actions', default=100)
-    parser.add_argument('-d', type=int, help='dimension', default=25)
-    parser.add_argument('-t', type=int, help='time horizon', default=1000)
+    parser.add_argument('-d', type=int, help='dimension', default=125)
+    parser.add_argument('-t', type=int, help='time horizon', default=500)
     parser.add_argument('-s', type=int, help='random seed', default=1)
 
     args = parser.parse_args()
