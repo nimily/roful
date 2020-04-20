@@ -16,9 +16,9 @@ from utils import MetricAggregator
 from utils import StateFactory
 
 
-def run_single_experiment(d, k, t, state_factory, sd=1.0):
+def run_single_experiment(d, k, t, g, state_factory, sd=1.0):
     param = state_factory().randn(d)
-    ctx_gen = CtxGenerator(k, d, state=state_factory())
+    ctx_gen = CtxGenerator(k, d, grouped=g, state=state_factory())
     noise_gen = NoiseGenerator.gaussian_noise(sd, state=state_factory())
 
     env = Environment(param, ctx_gen, noise_gen)
@@ -47,13 +47,13 @@ def run_single_experiment(d, k, t, state_factory, sd=1.0):
     }
 
 
-def run_experiments(n, d, k, t, s):
+def run_experiments(n, d, k, t, g, s):
     state_factory = StateFactory(s)
 
     aggregates = defaultdict(MetricAggregator)
     for i in range(n):
         print(f'Running experiment [{i}]...')
-        metrics = run_single_experiment(d, k, t, state_factory)
+        metrics = run_single_experiment(d, k, t, g, state_factory)
         for name, metric in metrics.items():
             aggregates[name].aggregate(np.cumsum(metric.regrets))
 
@@ -64,7 +64,7 @@ def run_experiments(n, d, k, t, s):
         plt.plot(range(t), mean, label=name)
 
     plt.legend()
-    plt.savefig(f'plots/regret-{n}-{d}-{k}-{t}-{s}.pdf')
+    plt.savefig(f'plots/regret-{n}-{d}-{k}-{t}-{s}-{"grouped" if g else "ungrouped"}.pdf')
     plt.show()
 
     print()
@@ -79,17 +79,18 @@ def run_experiments(n, d, k, t, s):
 
 
 def __main__():
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Run simulations for various ROFUL algorithms.')
 
-    parser.add_argument('-n', type=int, help='number of iterations', default=25)
-    parser.add_argument('-k', type=int, help='number of actions', default=100)
-    parser.add_argument('-d', type=int, help='dimension', default=125)
-    parser.add_argument('-t', type=int, help='time horizon', default=500)
+    parser.add_argument('-n', type=int, help='number of iterations', default=10)
+    parser.add_argument('-k', type=int, help='number of actions', default=12)
+    parser.add_argument('-d', type=int, help='dimension', default=120)
+    parser.add_argument('-t', type=int, help='time horizon', default=5000)
     parser.add_argument('-s', type=int, help='random seed', default=1)
+    parser.add_argument('-g', type=bool, help='if set, action will be grouped', default=0)
 
     args = parser.parse_args()
 
-    run_experiments(n=args.n, d=args.d, k=args.k, t=args.t, s=args.s)
+    run_experiments(n=args.n, d=args.d, k=args.k, t=args.t, g=args.g, s=args.s)
 
 
 if __name__ == '__main__':

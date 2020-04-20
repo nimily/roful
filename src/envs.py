@@ -122,14 +122,26 @@ class ContextGenerator:
 
 class StochasticContextGenerator(ContextGenerator):
 
-    def __init__(self, k, d, mu=0.0, sd=1.0, state=npr):
+    def __init__(self, k, d, mu=0.0, sd=1.0, grouped=False, state=npr):
+        if grouped and d % k != 0:
+            raise ValueError('When grouped is set, d must be divisible by k')
+
         self.k = k
         self.d = d
         self.mu = mu
         self.sd = sd
 
         self.state = state
+        self.grouped = grouped
 
     def generate(self, t):
-        arms = self.mu + self.state.randn(self.k, self.d) * self.sd
+        if self.grouped:
+            block = self.d // self.k
+            ctx = self.mu + self.state.randn(block) * self.sd
+            arms = np.zeros((self.k, self.d), dtype=np.float)
+            for i in range(self.k):
+                arms[i, i * block:(i + 1) * block] = ctx
+        else:
+            arms = self.mu + self.state.randn(self.k, self.d) * self.sd
+
         return Context(t, arms)
