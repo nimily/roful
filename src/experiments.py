@@ -86,7 +86,7 @@ def __main__():
     parser.add_argument('-d', type=int, help='dimension', default=120)
     parser.add_argument('-t', type=int, help='time horizon', default=5000)
     parser.add_argument('-s', type=int, help='random seed', default=1)
-    parser.add_argument('-g', type=bool, help='if set, action will be grouped', default=0)
+    parser.add_argument('-g', type=int, help='if set, action will be grouped', default=0)
 
     args = parser.parse_args()
 
