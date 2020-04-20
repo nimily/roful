@@ -67,11 +67,11 @@ class SearchSet:
 class ProductSearchSet(SearchSet):
 
     def find_optimal_arm(self) -> int:
-        perceived = list(map(self.max_perceived_reward, self.context.arms))
+        perceived = self.max_perceived_reward(self.context.arms)
         return np.argmax(perceived).item()
 
     @abc.abstractmethod
-    def max_perceived_reward(self, arm):
+    def max_perceived_reward(self, arms):
         pass
 
 
@@ -86,12 +86,16 @@ class Roful(Policy):
         self.search_set = search_set
 
     @staticmethod
-    def thompson_sampling(d, alpha, inflation=1.0, state=npr):
+    def ts(d, alpha, inflation=1.0, state=npr):
         return Roful(d, alpha, ThompsonSearchSet(inflation, state=state))
 
     @staticmethod
+    def dts(d, alpha, inflation=1.0, state=npr):
+        return Roful(d, alpha, DirectionalThompsonSearchSet(inflation, state=state))
+
+    @staticmethod
     def oful(d, alpha, radius=1.0):
-        return Roful(d, alpha, OfulSearchSet(radius))
+        return Roful(d, alpha, SievedGreedySearchSet(radius, 1.0))
 
     @staticmethod
     def greedy(d, alpha):
@@ -117,31 +121,49 @@ class Roful(Policy):
 
 
 class ThompsonSearchSet(ProductSearchSet):
-    sample: np.ndarray
+    compensator: np.ndarray
 
     def __init__(self, inflation=1.0, state=npr):
         self.inflation = inflation
         self.state = state
 
     def update(self):
-        mean = self.summary.mean
         rand = self.state.randn(self.summary.d)
 
         basis = self.summary.basis
         scale = self.summary.scale
 
-        self.sample = mean + basis @ ((basis.T @ rand) / (scale ** 0.5))
+        self.compensator = basis.T @ (rand / scale ** 0.5)
 
-    def max_perceived_reward(self, arm):
-        return self.sample @ arm
+    def max_perceived_reward(self, arms):
+        return arms @ (self.summary.mean + self.compensator)
+
+
+class DirectionalThompsonSearchSet(ProductSearchSet):
+    compensator: np.ndarray
+
+    def __init__(self, inflation=1.0, state=npr):
+        self.inflation = inflation
+        self.state = state
+
+    def update(self):
+        rand = self.state.randn(self.summary.d)
+
+        basis = self.summary.basis
+        scale = self.summary.scale
+
+        self.compensator = basis.T @ np.diag(rand * (self.summary.d / scale) ** 0.5)
+
+    def max_perceived_reward(self, arms):
+        return arms @ self.summary.mean + np.max(arms @ self.compensator, axis=1)
 
 
 class GreedySearchSet(ProductSearchSet):
     def __init__(self, inflation=1.0):
         self.inflation = inflation
 
-    def max_perceived_reward(self, arm):
-        return self.summary.mean @ arm
+    def max_perceived_reward(self, arms):
+        return arms @ self.summary.mean
 
 
 class SievedGreedySearchSet(SearchSet):
@@ -155,6 +177,9 @@ class SievedGreedySearchSet(SearchSet):
     def find_optimal_arm(self) -> int:
         subset = self.sieve_arms()
 
+        if len(subset) == 1:
+            return subset[0]
+
         values = [self.confidence_center(self.context.arms[i]) for i in subset]
         index = np.argmax(values).item()
 
@@ -166,9 +191,9 @@ class SievedGreedySearchSet(SearchSet):
         accept = lowers.max()
         optimal = uppers.max()
 
-        threshold = self.tolerance * (optimal - accept) * 0.99999 + accept
+        threshold = self.tolerance * optimal + (1.0 - self.tolerance) * accept
 
-        return np.argwhere(uppers > threshold).flatten()
+        return np.argwhere(uppers >= threshold).flatten()
 
     def confidence_center(self, arms):
         return arms @ self.summary.mean
@@ -181,20 +206,8 @@ class SievedGreedySearchSet(SearchSet):
 
         return self.radius * scale ** 0.5
 
-    def confidence_bounds(self, arm):
-        center = self.confidence_center(arm)
-        width = self.confidence_width(arm)
+    def confidence_bounds(self, arms):
+        centers = self.confidence_center(arms)
+        widths = self.confidence_width(arms)
 
-        return center - width, center + width
-
-
-class OfulSearchSet(SievedGreedySearchSet):
-    radius: float
-
-    def __init__(self, radius=1.0):
-        super().__init__(radius, tolerance=1.0)
-
-    def max_perceived_reward(self, arm):
-        mean = npl.solve(self.summary.xx, self.summary.xy)
-
-        return mean @ arm + self.radius * (arm @ npl.solve(self.summary.xx, arm)) ** 0.5
+        return centers - widths, centers + widths
