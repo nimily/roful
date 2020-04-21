@@ -3,6 +3,7 @@ import abc
 from typing import Optional
 
 import numpy as np
+import numpy.linalg as npl
 import numpy.random as npr
 
 
@@ -122,7 +123,7 @@ class ContextGenerator:
 
 class StochasticContextGenerator(ContextGenerator):
 
-    def __init__(self, k, d, mu=0.0, sd=1.0, grouped=False, state=npr):
+    def __init__(self, k, d, mu=0.0, sd=1.0, grouped=False, normalize=True, state=npr):
         if grouped and d % k != 0:
             raise ValueError('When grouped is set, d must be divisible by k')
 
@@ -133,6 +134,7 @@ class StochasticContextGenerator(ContextGenerator):
 
         self.state = state
         self.grouped = grouped
+        self.normalize = normalize
 
     def generate(self, t):
         if self.grouped:
@@ -143,5 +145,8 @@ class StochasticContextGenerator(ContextGenerator):
                 arms[i, i * block:(i + 1) * block] = ctx
         else:
             arms = self.mu + self.state.randn(self.k, self.d) * self.sd
+
+        if self.normalize:
+            arms /= npl.norm(arms, axis=1, keepdims=True)
 
         return Context(t, arms)
