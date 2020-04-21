@@ -22,13 +22,14 @@ def run_single_experiment(d, k, t, g, state_factory, sd=1.0):
     noise_gen = NoiseGenerator.gaussian_noise(sd, state=state_factory())
 
     env = Environment(param, ctx_gen, noise_gen)
+    radius = (2 * d * np.log(t)) ** 0.5
 
     algs = {
         'greedy': Roful.greedy(d, 1.0),
-        'oful': Roful.oful(d, 1.0, radius=d ** 0.5),
+        'oful': Roful.oful(d, 1.0, radius=radius),
         'ts': Roful.ts(d, 1.0, state=state_factory()),
         'dts': Roful.dts(d, 1.0, state=state_factory()),
-        'sg(.5)': Roful.sieved_greedy(d, 1.0, radius=d ** 0.5, tolerance=0.5),
+        'sg(.5)': Roful.sieved_greedy(d, 1.0, radius=radius, tolerance=0.5),
     }
 
     for i in range(t):
