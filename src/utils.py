@@ -30,8 +30,8 @@ class DataSummary:
     def _update_caches(self):
         svd = npl.svd(self.xx, hermitian=True)
 
-        self._mean = npl.solve(self.xx, self.xy)
-        self._basis = svd[0].T
+        self._mean = svd[0] @ ((svd[2] @ self.xy) / svd[1])
+        self._basis = svd[2]
         self._scale = svd[1]
         self._dirty = False
 
