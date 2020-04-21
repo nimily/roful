@@ -18,13 +18,13 @@ class DataSummary:
     _scale: np.ndarray
     _dirty: bool
 
-    def __init__(self, dim, alpha):
+    def __init__(self, dim, sigma):
         self.xy = np.zeros(dim, dtype=np.float)
-        self.xx = np.eye(dim, dtype=np.float) * alpha
+        self.xx = np.eye(dim, dtype=np.float) / sigma ** 2
 
         self._mean = np.zeros(dim, dtype=np.float)
         self._basis = np.eye(dim, dtype=np.float)
-        self._scale = np.ones(dim, dtype=np.float) * alpha
+        self._scale = np.ones(dim, dtype=np.float) / sigma ** 2
         self._dirty = False
 
     def _update_caches(self):
@@ -35,9 +35,9 @@ class DataSummary:
         self._scale = svd[1]
         self._dirty = False
 
-    def add_obs(self, x, y):
-        self.xy += x * y
-        self.xx += np.outer(x, x)
+    def add_obs(self, x, y, tau=1.0):
+        self.xy += x * y / tau ** 2
+        self.xx += np.outer(x, x) / tau ** 2
 
         self._dirty = True
 
