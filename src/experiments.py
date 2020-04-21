@@ -61,7 +61,10 @@ def run_experiments(n, d, k, t, g, s):
     for name, aggregate in aggregates.items():
         mean, sd, se = aggregate.confidence_band()
 
-        plt.fill_between(range(t), mean - se, mean + se, alpha=0.2)
+        lower = mean - 2 * se
+        upper = mean + 2 * se
+
+        plt.fill_between(range(t), lower, upper, alpha=0.2)
         plt.plot(range(t), mean, label=name)
 
     plt.legend()
@@ -85,7 +88,7 @@ def __main__():
     parser.add_argument('-n', type=int, help='number of iterations', default=10)
     parser.add_argument('-k', type=int, help='number of actions', default=12)
     parser.add_argument('-d', type=int, help='dimension', default=120)
-    parser.add_argument('-t', type=int, help='time horizon', default=5000)
+    parser.add_argument('-t', type=int, help='time horizon', default=2000)
     parser.add_argument('-s', type=int, help='random seed', default=1)
     parser.add_argument('-g', type=int, help='if set, action will be grouped', default=0)
 
