@@ -1,6 +1,6 @@
 import abc
 
-from typing import List
+from typing import List, Callable
 
 import numpy as np
 import numpy.linalg as npl
@@ -87,14 +87,24 @@ class Roful(Policy):
 
     @staticmethod
     def ts(d, alpha, inflation=1.0, state=npr):
+        if isinstance(inflation, float):
+            inflation = Roful._const_inflation(inflation)
+
         return Roful(d, alpha, ThompsonSearchSet(inflation, state=state))
 
     @staticmethod
     def dts(d, alpha, inflation=1.0, state=npr):
+        if isinstance(inflation, float):
+            inflation = Roful._const_inflation(inflation)
+
         return Roful(d, alpha, DirectionalThompsonSearchSet(inflation, state=state))
 
     @staticmethod
-    def oful(d, alpha, radius=1.0):
+    def _const_inflation(value):
+        return lambda: value
+
+    @staticmethod
+    def oful(d, alpha, radius):
         return Roful(d, alpha, SievedGreedySearchSet(radius, 1.0))
 
     @staticmethod
@@ -102,7 +112,7 @@ class Roful(Policy):
         return Roful(d, alpha, GreedySearchSet())
 
     @staticmethod
-    def sieved_greedy(d, alpha, radius=1.0, tolerance=1.0):
+    def sieved_greedy(d, alpha, radius, tolerance=1.0):
         return Roful(d, alpha, SievedGreedySearchSet(radius, tolerance))
 
     @property
@@ -123,7 +133,7 @@ class Roful(Policy):
 class ThompsonSearchSet(ProductSearchSet):
     compensator: np.ndarray
 
-    def __init__(self, inflation=1.0, state=npr):
+    def __init__(self, inflation, state=npr):
         self.inflation = inflation
         self.state = state
 
@@ -133,7 +143,7 @@ class ThompsonSearchSet(ProductSearchSet):
         basis = self.summary.basis
         scale = self.summary.scale
 
-        self.compensator = self.inflation * basis.T @ (rand / scale ** 0.5)
+        self.compensator = self.inflation() * basis.T @ (rand / scale ** 0.5)
 
     def max_perceived_reward(self, arms):
         return arms @ (self.summary.mean + self.compensator)
@@ -142,7 +152,7 @@ class ThompsonSearchSet(ProductSearchSet):
 class DirectionalThompsonSearchSet(ProductSearchSet):
     compensator: np.ndarray
 
-    def __init__(self, inflation=1.0, state=npr):
+    def __init__(self, inflation, state=npr):
         self.inflation = inflation
         self.state = state
 
@@ -167,7 +177,7 @@ class GreedySearchSet(ProductSearchSet):
 
 
 class SievedGreedySearchSet(SearchSet):
-    radius: float
+    radius: Callable
     tolerance: float
 
     def __init__(self, radius, tolerance):
@@ -204,7 +214,7 @@ class SievedGreedySearchSet(SearchSet):
         if len(scale.shape) == 2:
             scale = np.diag(scale)
 
-        return self.radius * scale ** 0.5
+        return self.radius() * scale ** 0.5
 
     def confidence_bounds(self, arms):
         centers = self.confidence_center(arms)

@@ -147,6 +147,6 @@ class StochasticContextGenerator(ContextGenerator):
             arms = self.mu + self.state.randn(self.k, self.d) * self.sd
 
         if self.normalize:
-            arms /= npl.norm(arms, axis=1, keepdims=True)
+            arms *= 1. / npl.norm(arms, axis=1, keepdims=True)
 
         return Context(t, arms)
