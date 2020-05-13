@@ -44,15 +44,11 @@ class Policy:
         self.metrics.add_obs(feedback)
 
 
-class SearchSet:
+class WorthFunction:
     summary: DataSummary
-    context: Context
 
-    def bind(self,
-             summary: DataSummary,
-             context: Context):
+    def bind(self, summary: DataSummary):
         self.summary = summary
-        self.context = context
 
         self.update()
 
@@ -60,44 +56,48 @@ class SearchSet:
         pass
 
     @abc.abstractmethod
-    def find_optimal_arm(self) -> int:
+    def compute(self, ctx: Context) -> np.ndarray:
         pass
 
 
-class ProductSearchSet(SearchSet):
+class ProductWorthFunction(WorthFunction):
 
-    def find_optimal_arm(self) -> int:
-        perceived = self.max_perceived_reward(self.context.arms)
-        return np.argmax(perceived).item()
+    def compute(self, ctx: Context) -> np.ndarray:
+        values = ctx.arms @ self.candidates()
+
+        if values.ndim == 2:
+            values = np.max(values, axis=1)
+
+        return values
 
     @abc.abstractmethod
-    def max_perceived_reward(self, arms):
+    def candidates(self):
         pass
 
 
 class Roful(Policy):
     summary: DataSummary
-    search_set: SearchSet
+    worth_func: WorthFunction
 
-    def __init__(self, d, alpha, search_set: SearchSet):
+    def __init__(self, d, alpha, worth_func: WorthFunction):
         super().__init__()
 
         self.summary = DataSummary(d, alpha)
-        self.search_set = search_set
+        self.worth_func = worth_func
 
     @staticmethod
     def ts(d, alpha, inflation=1.0, state=npr):
         if isinstance(inflation, float):
             inflation = Roful._const_inflation(inflation)
 
-        return Roful(d, alpha, ThompsonSearchSet(inflation, state=state))
+        return Roful(d, alpha, ThompsonWorthFunction(inflation, state=state))
 
     @staticmethod
     def dts(d, alpha, inflation=1.0, state=npr):
         if isinstance(inflation, float):
             inflation = Roful._const_inflation(inflation)
 
-        return Roful(d, alpha, DirectionalThompsonSearchSet(inflation, state=state))
+        return Roful(d, alpha, DirectionalThompsonWorthFunction(inflation, state=state))
 
     @staticmethod
     def _const_inflation(value):
@@ -105,23 +105,24 @@ class Roful(Policy):
 
     @staticmethod
     def oful(d, alpha, radius):
-        return Roful(d, alpha, SievedGreedySearchSet(radius, 1.0))
+        return Roful(d, alpha, SievedGreedyWorthFunction(radius, 1.0))
 
     @staticmethod
     def greedy(d, alpha):
-        return Roful(d, alpha, GreedySearchSet())
+        return Roful(d, alpha, GreedyWorthFunction())
 
     @staticmethod
     def sieved_greedy(d, alpha, radius, tolerance=1.0):
-        return Roful(d, alpha, SievedGreedySearchSet(radius, tolerance))
+        return Roful(d, alpha, SievedGreedyWorthFunction(radius, tolerance))
 
     @property
     def d(self):
         return self.summary.d
 
     def choose_arm(self, ctx: Context) -> int:
-        self.search_set.bind(self.summary, ctx)
-        return self.search_set.find_optimal_arm()
+        self.worth_func.bind(self.summary)
+        values = self.worth_func.compute(ctx)
+        return np.argmax(values).item()
 
     def update_model(self, feedback: Feedback):
         x = feedback.chosen_arm
@@ -130,7 +131,7 @@ class Roful(Policy):
         self.summary.add_obs(x, y)
 
 
-class ThompsonSearchSet(ProductSearchSet):
+class ThompsonWorthFunction(ProductWorthFunction):
     compensator: np.ndarray
 
     def __init__(self, inflation, state=npr):
@@ -145,11 +146,11 @@ class ThompsonSearchSet(ProductSearchSet):
 
         self.compensator = self.inflation() * basis.T @ (rand / scale ** 0.5)
 
-    def max_perceived_reward(self, arms):
-        return arms @ (self.summary.mean + self.compensator)
+    def candidates(self):
+        return self.summary.mean + self.compensator
 
 
-class DirectionalThompsonSearchSet(ProductSearchSet):
+class DirectionalThompsonWorthFunction(ProductWorthFunction):
     compensator: np.ndarray
 
     def __init__(self, inflation, state=npr):
@@ -162,21 +163,22 @@ class DirectionalThompsonSearchSet(ProductSearchSet):
         basis = self.summary.basis
         scale = self.summary.scale
 
-        self.compensator = self.inflation * basis.T @ np.diag(rand * (self.summary.d / scale) ** 0.5)
+        self.compensator = self.inflation() * basis.T @ np.diag(rand * (self.summary.d / scale) ** 0.5)
 
-    def max_perceived_reward(self, arms):
-        return arms @ self.summary.mean + np.max(arms @ self.compensator, axis=1)
+    def candidates(self):
+        return self.summary.mean + self.compensator
 
 
-class GreedySearchSet(ProductSearchSet):
+class GreedyWorthFunction(ProductWorthFunction):
+
     def __init__(self, inflation=1.0):
         self.inflation = inflation
 
-    def max_perceived_reward(self, arms):
-        return arms @ self.summary.mean
+    def candidates(self):
+        return self.summary.mean
 
 
-class SievedGreedySearchSet(SearchSet):
+class SievedGreedyWorthFunction(WorthFunction):
     radius: Callable
     tolerance: float
 
@@ -184,26 +186,18 @@ class SievedGreedySearchSet(SearchSet):
         self.radius = radius
         self.tolerance = tolerance
 
-    def find_optimal_arm(self) -> int:
-        subset = self.sieve_arms()
+    def compute(self, ctx: Context) -> np.ndarray:
+        lowers, centers, uppers = self.confidence_bounds(ctx.arms)
 
-        if len(subset) == 1:
-            return subset[0]
-
-        values = [self.confidence_center(self.context.arms[i]) for i in subset]
-        index = np.argmax(values).item()
-
-        return subset[index]
-
-    def sieve_arms(self):
-        lowers, uppers = self.confidence_bounds(self.context.arms)
-
-        accept = lowers.max()
+        # sieving arms
+        baseline = lowers.max()
         optimal = uppers.max()
 
-        threshold = self.tolerance * optimal + (1.0 - self.tolerance) * accept
+        threshold = self.tolerance * optimal + (1.0 - self.tolerance) * baseline
+        survivors = (uppers >= threshold)
 
-        return np.argwhere(uppers >= threshold).flatten()
+        # computing the values
+        return np.where(survivors, centers, lowers)
 
     def confidence_center(self, arms):
         return arms @ self.summary.mean
@@ -220,4 +214,4 @@ class SievedGreedySearchSet(SearchSet):
         centers = self.confidence_center(arms)
         widths = self.confidence_width(arms)
 
-        return centers - widths, centers + widths
+        return centers - widths, centers, centers + widths
